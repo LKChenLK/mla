@@ -187,3 +187,63 @@ def fever_score(predictions, actual=None, max_evidence=5):
     f1 = 2.0 * pr * rec / (pr + rec)
 
     return strict_score, acc_score, pr, rec, f1
+
+
+# Added 17 Dec 2021, counts fever score and label accuracy of SUP and REF only
+def fever_score_no_NEI(predictions, actual=None, max_evidence=5):
+    correct = 0
+    strict = 0
+    total = 0
+
+    macro_precision = 0
+    macro_precision_hits = 0
+
+    macro_recall = 0
+    macro_recall_hits = 0
+
+    for idx, instance in enumerate(predictions):
+        assert (
+            "predicted_evidence" in instance.keys()
+        ), "evidence must be provided for the prediction"
+
+        # If it's a blind test set, we need to copy in the values from the actual data
+        if "evidence" not in instance or "label" not in instance:
+            assert (
+                actual is not None
+            ), "in blind evaluation mode, actual data must be provided"
+            assert len(actual) == len(
+                predictions
+            ), "actual data and predicted data length must match"
+            assert (
+                "evidence" in actual[idx].keys()
+            ), "evidence must be provided for the actual evidence"
+            instance["evidence"] = actual[idx]["evidence"]
+            instance["label"] = actual[idx]["label"]
+
+        assert "evidence" in instance.keys(), "gold evidence must be provided"
+
+        if instance['label'] != "NOT ENOUGH INFO":
+            total += 1.0
+            if is_correct_label(instance): # label accuracy
+                correct += 1.0
+
+                if is_strictly_correct(instance, max_evidence): # fever score
+                    strict += 1.0
+
+        macro_prec = evidence_macro_precision(instance, max_evidence)
+        macro_precision += macro_prec[0]
+        macro_precision_hits += macro_prec[1]
+
+        macro_rec = evidence_macro_recall(instance, max_evidence)
+        macro_recall += macro_rec[0]
+        macro_recall_hits += macro_rec[1]
+
+    strict_score = strict / total if total != 0 else 0.0 # fever score
+    acc_score = correct / total if total != 0 else 0.0 # label accuracy
+
+    pr = (macro_precision / macro_precision_hits) if macro_precision_hits > 0 else 1.0
+    rec = (macro_recall / macro_recall_hits) if macro_recall_hits > 0 else 0.0
+
+    f1 = 2.0 * pr * rec / (pr + rec)
+
+    return strict_score, acc_score, pr, rec, f1
