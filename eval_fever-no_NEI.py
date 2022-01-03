@@ -11,9 +11,9 @@ from sklearn.metrics import f1_score, precision_score, recall_score, confusion_m
 
 
 def main(pred_file, gold_file):
-    gold = [line for line in jsonlines.open(args.gold_file)]
+    gold = [line for line in jsonlines.open(args.gold_file) if line['label'][0] != 'N']
     pred = [line for line in jsonlines.open(args.pred_file)]
-    assert len(pred) == len(gold)
+   # assert len(pred) == len(gold)
     pred_labels = [line["predicted_label"] for line in pred]
     gold_labels = [line["label"] for line in gold]
     score, label_acc, prec, rec, f1 = fever_score_no_NEI(pred, gold)

@@ -56,8 +56,8 @@ def is_strictly_correct(instance, max_evidence=None):
                 return True
 
     # If the class is NEI, we don't score the evidence retrieval component
-    elif instance["label"].upper() == "NOT ENOUGH INFO" and is_correct_label(instance):
-        return True
+    # elif instance["label"].upper() == "NOT ENOUGH INFO" and is_correct_label(instance):
+    #     return True
 
     return False
 
@@ -190,6 +190,7 @@ def fever_score(predictions, actual=None, max_evidence=5):
 
 
 # Added 17 Dec 2021, counts fever score and label accuracy of SUP and REF only
+# 26 Dec 2021: handle len(predictions) != len(actual), predictions excludes NEI
 def fever_score_no_NEI(predictions, actual=None, max_evidence=5):
     correct = 0
     strict = 0
@@ -201,6 +202,10 @@ def fever_score_no_NEI(predictions, actual=None, max_evidence=5):
     macro_recall = 0
     macro_recall_hits = 0
 
+    # for no-NEI evaluation, non-NEI labels from actual (gold_preds) 
+    if actual is not None:
+        actual_dict = {example['id']: example for example in actual}
+        
     for idx, instance in enumerate(predictions):
         assert (
             "predicted_evidence" in instance.keys()
@@ -210,25 +215,26 @@ def fever_score_no_NEI(predictions, actual=None, max_evidence=5):
         if "evidence" not in instance or "label" not in instance:
             assert (
                 actual is not None
-            ), "in blind evaluation mode, actual data must be provided"
-            assert len(actual) == len(
-                predictions
-            ), "actual data and predicted data length must match"
+            ), "in blind evaluation mode, actual data must be provided" 
+            
+            # find instance in actual that corresponds to predicted example
+            assert ( 
+                instance['id'] in actual_dict.keys()
+            ), "claim id not in gold data"
             assert (
-                "evidence" in actual[idx].keys()
+                "evidence" in actual_dict[instance['id']].keys()
             ), "evidence must be provided for the actual evidence"
-            instance["evidence"] = actual[idx]["evidence"]
-            instance["label"] = actual[idx]["label"]
+            actual_instance = actual_dict[instance['id']]
+            instance["evidence"] = actual_instance["evidence"]
+            instance["label"] = actual_instance["label"]
 
         assert "evidence" in instance.keys(), "gold evidence must be provided"
 
-        if instance['label'] != "NOT ENOUGH INFO":
-            total += 1.0
-            if is_correct_label(instance): # label accuracy
-                correct += 1.0
+        if is_correct_label(instance) and instance['label'] != "NOT ENOUGH INFORMATION": # label accuracy
+            correct += 1.0
 
-                if is_strictly_correct(instance, max_evidence): # fever score
-                    strict += 1.0
+            if is_strictly_correct(instance, max_evidence): # fever score
+                strict += 1.0
 
         macro_prec = evidence_macro_precision(instance, max_evidence)
         macro_precision += macro_prec[0]
@@ -238,6 +244,8 @@ def fever_score_no_NEI(predictions, actual=None, max_evidence=5):
         macro_recall += macro_rec[0]
         macro_recall_hits += macro_rec[1]
 
+    
+    total = len(predictions)
     strict_score = strict / total if total != 0 else 0.0 # fever score
     acc_score = correct / total if total != 0 else 0.0 # label accuracy
 

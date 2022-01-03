@@ -130,8 +130,14 @@ def main():
     out_examples = []
 
     for line in tqdm(lines, total=len(lines), desc="Building examples"):
-        out_examples.extend(build_examples(args, corpus, line))
-
+        if args.training:
+            out_examples.extend(build_examples(args, corpus, line))
+        else:
+            # only evaluate classes SUP and REF
+            if line['label'][0]=='N':
+                continue            
+            out_examples.extend(build_examples(args, corpus, line))
+      
     print(f"Save to {args.out_file}")
     with io.open(args.out_file, "w", encoding="utf-8", errors="ignore") as out:
         for e in out_examples:
