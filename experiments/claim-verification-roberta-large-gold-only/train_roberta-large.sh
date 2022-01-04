@@ -9,14 +9,14 @@
 #SBATCH --time=03:00:00
 #SBATCH --gres=gpu:tesla_a100:1
 
-#conda_setup="/home/smg/$(whoami)/miniconda3/etc/profile.d/conda.sh"
-#if [[ -f "${conda_setup}" ]]; then
-#  #shellcheck disable=SC1090
-#  . "${conda_setup}"
-#  conda activate mla
-#fi
+conda_setup="/home/smg/$(whoami)/miniconda3/etc/profile.d/conda.sh"
+if [[ -f "${conda_setup}" ]]; then
+  #shellcheck disable=SC1090
+  . "${conda_setup}"
+  conda activate mla
+fi
 
-#set -ex
+set -ex
 
 task='claim-verification'
 pretrained='roberta-large'

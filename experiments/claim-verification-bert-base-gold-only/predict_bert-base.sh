@@ -13,7 +13,7 @@ conda_setup="/home/smg/$(whoami)/miniconda3/etc/profile.d/conda.sh"
 if [[ -f "${conda_setup}" ]]; then
   #shellcheck disable=SC1090
   . "${conda_setup}"
-  conda activate mla_reprod
+  conda activate mla
 fi
 
 set -ex
