@@ -28,47 +28,48 @@ def get_all_sentences(corpus, pred_evidence, max_evidence_per_claim):
     return sent_list[:max_evidence_per_claim]
 
 
-# modified from get_gold_train_sentences
+# modified from get_train_sentences
 def get_train_sentences_modified(
     corpus,
-    evidence, # gold evidence
+    evidence,  # gold evidence
     pred_evidence,
-    label, # for training
+    label,  # for training
     max_evidence_per_claim,
 ):
     """
     Uses gold only evidence for training. If not enough, pad with `pad_to_max`
     ** NEI does not have gold evd sents. => append predicted sents instead
-    OUTPUT: mixed list of sentences 
+    OUTPUT: mixed list of sentences
     """
-    gold_evidence_set = set() 
-    for evidence_set in evidence: # would be empty for NEI
+    gold_evidence_set = set()
+    for evidence_set in evidence:  # would be empty for NEI
         for _, _, doc_id, sent_id in evidence_set:
             if doc_id is not None and doc_id in corpus:
                 gold_evidence_set.add((doc_id, sent_id))
 
     train_evidence = []
-    pos_sents = defaultdict(lambda: set()) # gold sents for each doc
+    pos_sents = defaultdict(lambda: set())  # gold sents for each doc
     for doc_id, sent_id in sorted(gold_evidence_set):
-        doc = {i: s for (i, s) in corpus[doc_id]["lines"]} 
-        bisect.insort( 
-            train_evidence, (-1, doc_id, sent_id, doc[sent_id]) # << use this to insert gold evd 
+        doc = {i: s for (i, s) in corpus[doc_id]["lines"]}
+        bisect.insort(
+            train_evidence,
+            (-1, doc_id, sent_id, doc[sent_id]),  # << use this to insert gold evd
         )  # assign score of -1 for gold evidence
         pos_sents[doc_id].add(sent_id)
 
-        
-    if label == 'N':
+    if label == "N":
         for doc_id, sent_id, score in pred_evidence:
             if doc_id not in corpus:
                 continue
             if doc_id in pos_sents and sent_id in pos_sents[doc_id]:
-                continue 
-            doc = {i: s for (i, s) in corpus[doc_id]["lines"]} 
+                continue
+            doc = {i: s for (i, s) in corpus[doc_id]["lines"]}
             if sent_id not in doc:
                 continue
-            bisect.insort(train_evidence, (-float(score), doc_id, sent_id, doc[sent_id]))
+            bisect.insort(
+                train_evidence, (-float(score), doc_id, sent_id, doc[sent_id])
+            )
 
-        
     sent_list = []
     for score, doc_id, sent_id, sent_text in train_evidence:
         sent_list.append([doc_id, sent_id, sent_text])
@@ -77,7 +78,7 @@ def get_train_sentences_modified(
     for doc_id, sent_id, sent_text in sent_list[:max_evidence_per_claim]:
         selection_label = (
             1 if doc_id in pos_sents and sent_id in pos_sents[doc_id] else 0
-        ) # 1: from gold, positive training example; 0: from pred, neg training example.
+        )  # 1: from gold, positive training example; 0: from pred, neg training example.
         yield [doc_id, sent_id, sent_text, label, selection_label]
 
 
@@ -87,11 +88,10 @@ def build_examples(args, corpus, line):
     evidence = line.get("evidence", [])
     pred_evidence = line["predicted_evidence"]
     examples = []
+    label = line["label"][0]
 
     if args.training:
-        label = line["label"][0]
         examples.append([claim_id, claim_text] + PAD_SENT + [label, 0])
-
         for evidence_sent in get_train_sentences_modified(
             corpus,
             evidence,
@@ -100,15 +100,10 @@ def build_examples(args, corpus, line):
             args.max_evidence_per_claim,
         ):
             examples.append([claim_id, claim_text] + evidence_sent)
-    else: # using gold sentences for oracle setting
-        label = line["label"][0]
+    else:  # modified to use gold as well for oracle setting
         examples.append([claim_id, claim_text] + PAD_SENT)
         for evidence_sent in get_train_sentences_modified(
-            corpus,
-            evidence,
-            pred_evidence, 
-            label, 
-            args.max_evidence_per_claim
+            corpus, evidence, pred_evidence, label, args.max_evidence_per_claim
         ):
             examples.append([claim_id, claim_text] + evidence_sent)
 
@@ -132,7 +127,13 @@ def main():
     out_examples = []
 
     for line in tqdm(lines, total=len(lines), desc="Building examples"):
-        out_examples.extend(build_examples(args, corpus, line))
+        if args.training:
+            out_examples.extend(build_examples(args, corpus, line))
+        else:
+            # only evaluate classes SUP and REF
+            if line["label"][0] == "N":
+                continue
+            out_examples.extend(build_examples(args, corpus, line))
 
     print(f"Save to {args.out_file}")
     with io.open(args.out_file, "w", encoding="utf-8", errors="ignore") as out:
