@@ -13,7 +13,7 @@ from attentions import (
     SelfAttention,
 )
 from modeling_utils import (
-    Classifier,
+    Classifier,  # = dense + dropout + linear
     PositionalEncoding,
 )
 
@@ -33,7 +33,7 @@ class VerificationModel(PreTrainedModel):
         self.attn_bias_type = hparams.attn_bias_type
         rank_zero_info(f"attention bias type: {hparams.attn_bias_type}")
 
-        setattr(
+        setattr(  # sets self.config.model_type to be AutoModel ...
             self,
             self.config.model_type,
             AutoModel.from_pretrained(
@@ -53,7 +53,7 @@ class VerificationModel(PreTrainedModel):
         self.aggregate_attn = None
         if hparams.aggregate_mode == "attn":
             self.aggregate_attn = MultiHeadedAttention(self.config, self.attn_bias_type)
-
+            # self.config: AutoConfig.from_pretrained(pretrained_model_name)
         self.sent_attn = None
         if hparams.sent_attn:
             self.sent_attn = SelfAttention(self.config)
@@ -76,6 +76,7 @@ class VerificationModel(PreTrainedModel):
         hidden_states = encoder_outputs.last_hidden_state
         hidden_size = self.config.hidden_size
 
+        # TOKEN-LEVEL ATTENTION (eq. 9)
         sents = None
         if self.word_attn:
             seq_length = self.num_evidence * self.max_seq_length
@@ -110,20 +111,25 @@ class VerificationModel(PreTrainedModel):
         if sents is None:
             sents = features.view(-1, num_evidence_plus, hidden_size)[:, 1:]
 
+        # SENTENCE-LEVEL ATTENTION (eq. 10)
         if self.sent_attn:
             sents = self.sent_position(sents)
             sents = self.sent_attn(sents)
 
+        # INTER-ATTENTION btwn CLAIM & EVIDENCE (eq. 5, 12)
         if self.aggregate_mode == "sum":
             aggregate_output = sents.sum(dim=1)
         elif self.aggregate_mode == "mean":
             aggregate_output = sents.mean(dim=1)
         elif self.aggregate_mode == "attn":
+            d_k = claims.size(-1)
+            temperature = d_k / 2  # default is math.sqrt(query.size(-1))=8
             aggregate_output = self.aggregate_attn(
                 claims,
                 sents,
                 sents,
-                bias=sent_scores,
+                bias=sent_scores,  # (eq. 2)
+                temperature=temperature,
             ).squeeze(1)
         elif self.aggregate_mode == "concat":
             x = torch.cat([claims.unsqueeze(1), sents], dim=1)
@@ -161,7 +167,9 @@ class VerificationModel(PreTrainedModel):
         if token_type_ids is not None:
             token_type_ids = token_type_ids.view(-1, self.max_seq_length)
 
-        return getattr(self, self.config.model_type)(
+        return getattr(
+            self, self.config.model_type
+        )(  # returns value of self.config.model_type;below: probably args for.config.model_type?
             input_ids=input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,

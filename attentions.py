@@ -11,10 +11,20 @@ from torch import nn
 
 
 def attention(
-    query, key, value, mask=None, dropout=None, bias=None, attn_bias_type=None
+    query,
+    key,
+    value,
+    mask=None,
+    dropout=None,
+    bias=None,
+    attn_bias_type=None,
+    temperature=None,
 ):
-    d_k = query.size(-1)
-    scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
+    d_k = query.size(-1)  # the default temperature
+    if temperature is not None:
+        scores = torch.matmul(query, key.transpose(-2, -1)) / temperature
+    else:
+        scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
 
     if bias is not None:
         if attn_bias_type == "dot":
@@ -38,6 +48,7 @@ class MultiHeadedAttention(nn.Module):
         self.d_k = config.hidden_size // config.num_attention_heads
         self.h = config.num_attention_heads
         self.linears = self.clones(nn.Linear(config.hidden_size, config.hidden_size), 4)
+        # nn.Linear(input_size, output_size), performs linear transformation of the input tensor
         self.attn = None
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.attn_bias_type = attn_bias_type
@@ -45,13 +56,15 @@ class MultiHeadedAttention(nn.Module):
     def clones(self, module, N):
         return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
 
-    def forward(self, query, key, value, mask=None, bias=None):
+    def forward(self, query, key, value, mask=None, bias=None, temperature=None):
         if mask is not None:
             mask = mask.unsqueeze(1)
 
         def gate(x, p):
             assert x.size(0) == p.size(0) and x.size(1) == p.size(-1)
             return x + self.dropout(p.unsqueeze(-1) * x)
+            # dropout: randomly zeroes some of the elements of the input
+            # tensor with probability p using samples from a Bernoulli distribution
 
         if bias is not None:
             if self.attn_bias_type == "key_only":
@@ -65,6 +78,9 @@ class MultiHeadedAttention(nn.Module):
         n_b = query.size(0)
         query, key, value = [
             lin(x).view(n_b, -1, self.h, self.d_k).transpose(1, 2)
+            # view: reshapes the tensor as dimensions specified;
+            #       -1: used when you know the num of cols but not the rows (or vice versa)
+            # torch.transpose(dim0, dim1): transposes dimensions dim0, dim1
             for lin, x in zip(self.linears, (query, key, value))
         ]
 
@@ -76,6 +92,7 @@ class MultiHeadedAttention(nn.Module):
             dropout=self.dropout,
             bias=bias,
             attn_bias_type=self.attn_bias_type,
+            temperature=temperature,
         )
 
         x = x.transpose(1, 2).contiguous().view(n_b, -1, self.h * self.d_k)
@@ -88,5 +105,5 @@ class SelfAttention(nn.Module):
         self.self_attn = MultiHeadedAttention(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
-    def forward(self, x, mask=None, bias=None):
-        return x + self.dropout(self.self_attn(x, x, x, mask, bias))
+    def forward(self, x, mask=None, bias=None, temperature=None):
+        return x + self.dropout(self.self_attn(x, x, x, mask, bias, temperature))
