@@ -54,11 +54,36 @@ def is_strictly_correct(instance, max_evidence=None):
                 ]
             ):
                 return True
-
     # If the class is NEI, we don't score the evidence retrieval component
-    # elif instance["label"].upper() == "NOT ENOUGH INFO" and is_correct_label(instance):
-    #     return True
+    elif instance["label"].upper() == "NOT ENOUGH INFO" and is_correct_label(instance):
+        return True
+    return False
 
+
+def is_strictly_correct_exclude_NEI(instance, max_evidence=None):
+    # Strict evidence matching is only for NEI class
+    check_predicted_evidence_format(instance)
+
+    if instance["label"].upper() != "NOT ENOUGH INFO" and is_correct_label(instance):
+        assert (
+            "predicted_evidence" in instance
+        ), "Predicted evidence must be provided for strict scoring"
+
+        if max_evidence is None:
+            max_evidence = len(instance["predicted_evidence"])
+
+        for evience_group in instance["evidence"]:
+            # Filter out the annotation ids. We just want the evidence page and line number
+            actual_sentences = [[e[2], e[3]] for e in evience_group]
+            # Only return true if an entire group of actual sentences is in the predicted sentences
+            if all(
+                [
+                    actual_sent in instance["predicted_evidence"][:max_evidence]
+                    for actual_sent in actual_sentences
+                ]
+            ):
+                return True
+    # If the class is NEI, we don't score the evidence retrieval component
     return False
 
 
@@ -134,7 +159,7 @@ def evidence_micro_precision(instance):
 def fever_score(predictions, actual=None, max_evidence=5):
     correct = 0
     strict = 0
-
+    strict_total = 0
     macro_precision = 0
     macro_precision_hits = 0
 
@@ -162,10 +187,14 @@ def fever_score(predictions, actual=None, max_evidence=5):
 
         assert "evidence" in instance.keys(), "gold evidence must be provided"
 
+        if actual[idx]["label"][0] == "R" or actual[idx]["label"][0] == "S":
+            strict_total += 1
+
         if is_correct_label(instance):
             correct += 1.0
 
             if is_strictly_correct(instance, max_evidence):
+                # if is_strictly_correct_exclude_NEI(instance, max_evidence):
                 strict += 1.0
 
         macro_prec = evidence_macro_precision(instance, max_evidence)
@@ -178,6 +207,7 @@ def fever_score(predictions, actual=None, max_evidence=5):
 
     total = len(predictions)
 
+    # strict_score = strict / strict_total if strict_total != 0 else 0.0
     strict_score = strict / total if total != 0 else 0.0
     acc_score = correct / total if total != 0 else 0.0
 
@@ -192,6 +222,10 @@ def fever_score(predictions, actual=None, max_evidence=5):
 # Added 17 Dec 2021, counts fever score and label accuracy of SUP and REF only
 # 26 Dec 2021: handle len(predictions) != len(actual), predictions excludes NEI
 def fever_score_no_NEI(predictions, actual=None, max_evidence=5):
+    """
+    For evaluating predictions on claims labelled  with 'SUP' and 'REF'
+    """
+
     correct = 0
     strict = 0
     total = 0
@@ -202,10 +236,10 @@ def fever_score_no_NEI(predictions, actual=None, max_evidence=5):
     macro_recall = 0
     macro_recall_hits = 0
 
-    # for no-NEI evaluation, non-NEI labels from actual (gold_preds) 
+    # for no-NEI evaluation, non-NEI labels from actual (gold_preds)
     if actual is not None:
-        actual_dict = {example['id']: example for example in actual}
-        
+        actual_dict = {example["id"]: example for example in actual}
+
     for idx, instance in enumerate(predictions):
         assert (
             "predicted_evidence" in instance.keys()
@@ -215,25 +249,25 @@ def fever_score_no_NEI(predictions, actual=None, max_evidence=5):
         if "evidence" not in instance or "label" not in instance:
             assert (
                 actual is not None
-            ), "in blind evaluation mode, actual data must be provided" 
-            
+            ), "in blind evaluation mode, actual data must be provided"
+
             # find instance in actual that corresponds to predicted example
-            assert ( 
-                instance['id'] in actual_dict.keys()
-            ), "claim id not in gold data"
+            assert instance["id"] in actual_dict.keys(), "claim id not in gold data"
             assert (
-                "evidence" in actual_dict[instance['id']].keys()
+                "evidence" in actual_dict[instance["id"]].keys()
             ), "evidence must be provided for the actual evidence"
-            actual_instance = actual_dict[instance['id']]
+            actual_instance = actual_dict[instance["id"]]
             instance["evidence"] = actual_instance["evidence"]
             instance["label"] = actual_instance["label"]
 
         assert "evidence" in instance.keys(), "gold evidence must be provided"
 
-        if is_correct_label(instance) and instance['label'] != "NOT ENOUGH INFORMATION": # label accuracy
+        if (
+            is_correct_label(instance) and instance["label"] != "NOT ENOUGH INFORMATION"
+        ):  # label accuracy
             correct += 1.0
 
-            if is_strictly_correct(instance, max_evidence): # fever score
+            if is_strictly_correct(instance, max_evidence):  # fever score
                 strict += 1.0
 
         macro_prec = evidence_macro_precision(instance, max_evidence)
@@ -244,10 +278,9 @@ def fever_score_no_NEI(predictions, actual=None, max_evidence=5):
         macro_recall += macro_rec[0]
         macro_recall_hits += macro_rec[1]
 
-    
     total = len(predictions)
-    strict_score = strict / total if total != 0 else 0.0 # fever score
-    acc_score = correct / total if total != 0 else 0.0 # label accuracy
+    strict_score = strict / total if total != 0 else 0.0  # fever score
+    acc_score = correct / total if total != 0 else 0.0  # label accuracy
 
     pr = (macro_precision / macro_precision_hits) if macro_precision_hits > 0 else 1.0
     rec = (macro_recall / macro_recall_hits) if macro_recall_hits > 0 else 0.0
