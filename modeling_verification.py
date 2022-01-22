@@ -2,6 +2,7 @@
 # Author: Canasai Kruengkrai (canasai@nii.ac.jp)
 # All rights reserved.
 
+import math
 import torch
 from torch.nn import CrossEntropyLoss
 from pytorch_lightning.utilities import rank_zero_info
@@ -32,6 +33,7 @@ class VerificationModel(PreTrainedModel):
         rank_zero_info(f"aggregate mode: {hparams.aggregate_mode}")
         self.attn_bias_type = hparams.attn_bias_type
         rank_zero_info(f"attention bias type: {hparams.attn_bias_type}")
+        self.temperature_ratio = hparams.temperature_ratio
 
         setattr(  # sets self.config.model_type to be AutoModel ...
             self,
@@ -123,7 +125,9 @@ class VerificationModel(PreTrainedModel):
             aggregate_output = sents.mean(dim=1)
         elif self.aggregate_mode == "attn":
             d_k = claims.size(-1)
-            temperature = d_k / 2  # default is math.sqrt(query.size(-1))=8
+            temperature = (
+                math.sqrt(d_k) * self.temperature_ratio
+            )  # default is math.sqrt(d_k)=8
             aggregate_output = self.aggregate_attn(
                 claims,
                 sents,
@@ -169,7 +173,8 @@ class VerificationModel(PreTrainedModel):
 
         return getattr(
             self, self.config.model_type
-        )(  # returns value of self.config.model_type;below: probably args for.config.model_type?
+        )(  # returns value of self.config.model_type;
+            # below are prob the arguments for self.config.model_type?
             input_ids=input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,

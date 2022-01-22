@@ -47,7 +47,7 @@ class FactCheckerTransformer(BaseTransformer):
             config=None if model is None else model.config,
         )
 
-    @auto_move_data
+    @auto_move_data  # transfers batch to device
     def forward(self, **inputs):
         return self.model(**inputs)
 
@@ -237,6 +237,7 @@ class FactCheckerTransformer(BaseTransformer):
         parser.add_argument("--freeze_params", nargs="+", default=[])
         parser.add_argument("--classifier_dropout_prob", type=float, default=0.1)
         parser.add_argument("--class_weighting", action="store_true")
+        parser.add_argument("--temperature_ratio", type=float, default=1.0)
         return parser
 
 

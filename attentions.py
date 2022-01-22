@@ -20,11 +20,14 @@ def attention(
     attn_bias_type=None,
     temperature=None,
 ):
-    d_k = query.size(-1)  # the default temperature
+    d_k = query.size(-1)
     if temperature is not None:
+        assert temperature != 0
         scores = torch.matmul(query, key.transpose(-2, -1)) / temperature
     else:
-        scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
+        scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(
+            d_k
+        )  # the default temperature
 
     if bias is not None:
         if attn_bias_type == "dot":
@@ -62,9 +65,10 @@ class MultiHeadedAttention(nn.Module):
 
         def gate(x, p):
             assert x.size(0) == p.size(0) and x.size(1) == p.size(-1)
-            return x + self.dropout(p.unsqueeze(-1) * x)
-            # dropout: randomly zeroes some of the elements of the input
-            # tensor with probability p using samples from a Bernoulli distribution
+            return x + self.dropout(
+                p.unsqueeze(-1) * x
+            )  # dropout: randomly zeroes some of the elements of the input tensor
+            # with probability p using samples from a Bernoulli distribution
 
         if bias is not None:
             if self.attn_bias_type == "key_only":
@@ -79,7 +83,7 @@ class MultiHeadedAttention(nn.Module):
         query, key, value = [
             lin(x).view(n_b, -1, self.h, self.d_k).transpose(1, 2)
             # view: reshapes the tensor as dimensions specified;
-            #       -1: used when you know the num of cols but not the rows (or vice versa)
+            # -1: used when you know the num of cols but not the rows (or vice versa)
             # torch.transpose(dim0, dim1): transposes dimensions dim0, dim1
             for lin, x in zip(self.linears, (query, key, value))
         ]
