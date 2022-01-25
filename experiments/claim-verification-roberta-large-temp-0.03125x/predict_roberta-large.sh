@@ -4,8 +4,8 @@
 # Authors: Canasai Kruengkrai (canasai@nii.ac.jp)
 # All rights reserved.
 #
-#SBATCH --job-name=predict_bert-base
-#SBATCH --out='predict_bert-base.log'
+#SBATCH --job-name=predict_roberta-large
+#SBATCH --out='predict_roberta-large.log'
 #SBATCH --time=00:10:00
 #SBATCH --gres=gpu:tesla_a100:1
 
@@ -18,7 +18,7 @@ fi
 
 set -ex
 
-pretrained='bert-base-uncased'
+pretrained='roberta-large'
 max_len=128
 model_dir="${pretrained}-${max_len}-mod"
 out_dir="${pretrained}-${max_len}-out"
@@ -43,7 +43,24 @@ mkdir -p "${out_dir}"
 
 split='shared_task_dev'
 
-python 'postprocess_claim_verification.py' \
+if [[ -f "${out_dir}/${split}.jsonl" ]]; then
+  echo "Result '${out_dir}/${split}.jsonl' exists!"
+  exit
+fi
+
+python '../../preprocess_claim_verification.py' \
+  --corpus "${data_dir}/corpus.jsonl" \
+  --in_file "${pred_sent_dir}/${split}.jsonl" \
+  --out_file "${out_dir}/${split}.tsv"
+
+python '../../predict.py' \
+  --checkpoint_file "${latest}" \
+  --in_file "${out_dir}/${split}.tsv" \
+  --out_file "${out_dir}/${split}.out" \
+  --batch_size 128 \
+  --gpus 1
+
+python '../../postprocess_claim_verification.py' \
   --data_file "${data_dir}/${split}.jsonl" \
   --pred_sent_file "${pred_sent_dir}/${split}.jsonl" \
   --pred_claim_file "${out_dir}/${split}.out" \

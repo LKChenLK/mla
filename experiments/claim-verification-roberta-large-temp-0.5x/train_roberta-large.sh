@@ -38,7 +38,7 @@ fi
 
 mkdir -p "${inp_dir}"
 
-python 'preprocess_claim_verification.py' \
+python '../../preprocess_claim_verification.py' \
   --corpus "${data_dir}/corpus.jsonl" \
   --in_file "${pred_sent_dir}/train.jsonl" \
   --out_file "${inp_dir}/train.tsv" \
@@ -57,15 +57,15 @@ python '../../train.py' \
   --word_attn \
   --class_weighting \
   --use_title \
-  --max_epochs 3 \
+  --max_epochs 2 \
   --train_batch_size 16 \
   --eval_batch_size 16 \
   --accumulate_grad_batches 16 \
-  --learning_rate 2e-5 \
+  --learning_rate 5e-5 \
   --warmup_ratio 0.06 \
   --adafactor \
   --gradient_clip_val 1.0 \
   --precision 16 \
   --deterministic true \
   --gpus 1 \
-  --temperature_ratio 1
+  --temperature_ratio 0.5
