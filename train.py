@@ -47,7 +47,7 @@ class FactCheckerTransformer(BaseTransformer):
             config=None if model is None else model.config,
         )
 
-    @auto_move_data
+    @auto_move_data  # transfers batch to device
     def forward(self, **inputs):
         return self.model(**inputs)
 
@@ -150,6 +150,19 @@ class FactCheckerTransformer(BaseTransformer):
             shuffle=True if mode == "train" and self.training else False,
         )
 
+    def load_weights(self, checkpoint):
+        rank_zero_info(f"Loading model weights from [{checkpoint}]")
+        checkpoint = torch.load(
+            checkpoint,
+            map_location=lambda storage, loc: storage,
+        )
+        ckpt_dict = checkpoint["state_dict"]
+        model_dict = self.state_dict()
+        ckpt_dict = {k: v for k, v in ckpt_dict.items() if k in model_dict}
+        assert len(ckpt_dict), "Cannot find shareable weights"
+        model_dict.update(ckpt_dict)
+        self.load_state_dict(model_dict)
+
     def build_inputs(self, batch):
         inputs = {"input_ids": batch[0], "attention_mask": batch[1], "labels": batch[4]}
         if len(batch) == 6:
@@ -237,6 +250,10 @@ class FactCheckerTransformer(BaseTransformer):
         parser.add_argument("--freeze_params", nargs="+", default=[])
         parser.add_argument("--classifier_dropout_prob", type=float, default=0.1)
         parser.add_argument("--class_weighting", action="store_true")
+        parser.add_argument("--temperature_ratio", type=float, default=1.0)
+        parser.add_argument("--change_predict_temperature", action="store_true")
+        parser.add_argument("--pred_temperature_ratio", type=float, default=1.0)
+        parser.add_argument("--load_weights", type=str, default=None)
         return parser
 
 
@@ -286,6 +303,9 @@ def main():
 
     ckpt_dirpath = Path(args.default_root_dir) / "checkpoints"
     ckpt_dirpath.mkdir(parents=True, exist_ok=True)
+
+    if args.load_weights:
+        model.load_weights(args.load_weights)
 
     monitor, mode, ckpt_filename = None, "min", "{epoch}"
     dev_filepath = Path(args.data_dir) / "dev.jsonl"
