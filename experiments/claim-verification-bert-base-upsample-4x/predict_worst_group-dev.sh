@@ -59,7 +59,7 @@ python '../../extract_worst_groups.py' \
   --out_gold_file "${data_dir}/${worst_group}-gold.jsonl" \
   --out_pred_sent_file "${data_dir}/${worst_group}-pred_sent.jsonl" \
   --corpus "${data_dir}/corpus.jsonl" \
-  --worst_group_type "all_incorrects"
+  --worst_group_type "negation_refutes"
 
 # predict R, S, or N, from training data and output probabilities
 python '../../predict.py' \

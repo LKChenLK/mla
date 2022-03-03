@@ -234,6 +234,7 @@ class FactCheckerTransformer(BaseTransformer):
         parser.add_argument("--task", type=str, required=True)
         parser.add_argument("--overwrite_cache", action="store_true")
         parser.add_argument("--save_all_checkpoints", action="store_true")
+        parser.add_argument("--save_all_epochs", action="store_true")
         parser.add_argument("--max_seq_length", type=int, default=512)
         parser.add_argument("--num_evidence", type=int, default=5)
         parser.add_argument("--use_title", action="store_true")
@@ -251,8 +252,6 @@ class FactCheckerTransformer(BaseTransformer):
         parser.add_argument("--classifier_dropout_prob", type=float, default=0.1)
         parser.add_argument("--class_weighting", action="store_true")
         parser.add_argument("--temperature_ratio", type=float, default=1.0)
-        parser.add_argument("--change_predict_temperature", action="store_true")
-        parser.add_argument("--pred_temperature_ratio", type=float, default=1.0)
         parser.add_argument("--load_weights", type=str, default=None)
         return parser
 
@@ -314,15 +313,18 @@ def main():
         ckpt_filename = "{epoch}-{" + monitor + ":.4f}"
 
     callbacks = []
-    callbacks.append(
-        ModelCheckpoint(
-            dirpath=ckpt_dirpath,
-            filename=ckpt_filename,
-            monitor=monitor,
-            mode=mode,
-            save_top_k=-1 if args.save_all_checkpoints else None,
-        )
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=ckpt_dirpath,
+        filename=ckpt_filename,
+        monitor=monitor,
+        mode=mode,
+        save_top_k=-1 if args.save_all_checkpoints else None,
+        save_last=args.save_all_epochs,
     )
+    if args.save_all_epochs:
+        checkpoint_callback.CHECKPOINT_NAME_LAST = "{epoch}-last"
+
+    callbacks.append(checkpoint_callback)
 
     if monitor is not None:
         callbacks.append(

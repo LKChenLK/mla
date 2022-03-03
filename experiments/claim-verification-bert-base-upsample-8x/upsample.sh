@@ -75,9 +75,6 @@ python '../../eval_fever.py' \
   --pred_file "${out_dir}/${split}.jsonl" \
   --out_file "${out_dir}/eval.${split}.txt"
 
-# TODO: implement worst case evaluation
-
-# TODO: get REFUTE errors that are spuriously correlated w negation words
 python '../../upsample_errors.py' \
   --gold_file "${data_dir}/train.jsonl" \
   --pred_file "${out_dir}/${split}.jsonl" \

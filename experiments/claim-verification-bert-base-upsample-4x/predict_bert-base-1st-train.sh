@@ -5,7 +5,7 @@
 # All rights reserved.
 #
 #SBATCH --job-name=predict_bert-base
-#SBATCH --out='predict_bert-base.log'
+#SBATCH --out='predict_bert-base-1st-train.log'
 #SBATCH --time=00:10:00
 #SBATCH --gres=gpu:tesla_a100:1
 
@@ -21,7 +21,7 @@ set -ex
 pretrained='bert-base-uncased'
 max_len=128
 model_dir="${pretrained}-${max_len}-mod-1st-train"
-out_dir="${pretrained}-${max_len}-out-1st-train"
+out_dir="${pretrained}-${max_len}-out"
 
 data_dir='../data'
 pred_sent_dir='../sentence-selection/bert-base-uncased-128-out'
@@ -42,31 +42,32 @@ echo "Latest checkpoint is ${latest}"
 mkdir -p "${out_dir}"
 
 split='shared_task_dev'
+out_name='shared_task_dev-1st-train'
 
-if [[ -f "${out_dir}/${split}.jsonl" ]]; then
-  echo "Result '${out_dir}/${split}.jsonl' exists!"
+if [[ -f "${out_dir}/${out_name}.jsonl" ]]; then
+  echo "Result '${out_dir}/${out_name}.jsonl' exists!"
   exit
 fi
 
 python '../../preprocess_claim_verification.py' \
   --corpus "${data_dir}/corpus.jsonl" \
   --in_file "${pred_sent_dir}/${split}.jsonl" \
-  --out_file "${out_dir}/${split}.tsv"
+  --out_file "${out_dir}/${out_name}.tsv"
 
 python '../../predict.py' \
   --checkpoint_file "${latest}" \
-  --in_file "${out_dir}/${split}.tsv" \
-  --out_file "${out_dir}/${split}.out" \
+  --in_file "${out_dir}/${out_name}.tsv" \
+  --out_file "${out_dir}/${out_name}.out" \
   --batch_size 128 \
-  --gpus 1 \
+  --gpus 1
 
- python '../../postprocess_claim_verification.py' \
+python '../../postprocess_claim_verification.py' \
   --data_file "${data_dir}/${split}.jsonl" \
   --pred_sent_file "${pred_sent_dir}/${split}.jsonl" \
-  --pred_claim_file "${out_dir}/${split}.out" \
-  --out_file "${out_dir}/${split}.jsonl"
+  --pred_claim_file "${out_dir}/${out_name}.out" \
+  --out_file "${out_dir}/${out_name}.jsonl"
 
 python '../../eval_fever.py' \
   --gold_file "${data_dir}/${split}.jsonl" \
-  --pred_file "${out_dir}/${split}.jsonl" \
-  --out_file "${out_dir}/eval.${split}.txt"
+  --pred_file "${out_dir}/${out_name}.jsonl" \
+  --out_file "${out_dir}/eval.${out_name}.txt"

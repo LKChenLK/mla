@@ -34,6 +34,7 @@ def has_negation_word(claim):
 def get_worst_group(pred, gold):
     incorrect_inst = []
     spurious_correlated_inst = []
+    neg_ref_inst = []
 
     for idx, instance in enumerate(pred):
         assert (
@@ -46,17 +47,26 @@ def get_worst_group(pred, gold):
         for p in instance["predicted_evidence"]:
             p.append(0)
 
+        claim = instance["claim"]
         if not is_correct_label(instance):
-            claim = instance["claim"]
             incorrect_inst.append(instance)
             if has_negation_word(claim) and instance["label"][0] == "R":
                 spurious_correlated_inst.append(instance)
 
-    assert args.worst_group_type in ["all_incorrects", "spurious_refutes"]
+        if has_negation_word(claim) and instance["label"][0] == "R":
+            neg_ref_inst.append(instance)
+
+    assert args.worst_group_type in [
+        "all_incorrects",
+        "spurious_refutes",
+        "negation_refutes",
+    ]
     if args.worst_group_type == "all_incorrects":
         out_inst = incorrect_inst
     elif args.worst_group_type == "spurious_refutes":
         out_inst = spurious_correlated_inst
+    elif args.worst_group_type == "negation_refutes":
+        out_inst = neg_ref_inst
     return out_inst
 
 

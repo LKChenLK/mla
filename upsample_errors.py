@@ -38,7 +38,7 @@ def main(pred_file, gold_file):
     assert len(pred) == len(gold)
 
     incorrect_inst = []
-    # spurious_correlated_inst = []
+    extra_error_inst = []
     correct_inst = []
     for idx, instance in enumerate(pred):
         assert (
@@ -54,15 +54,23 @@ def main(pred_file, gold_file):
         if is_correct_label(instance):
             correct_inst.append(instance)
         else:
-            incorrect_inst.append(instance)
-            # claim = instance['claim']
-            # if has_negation_word(claim) and instance['label'][0]=='R':
-            #     spurious_correlated_inst.append(instance)
-            # else:
-            #     correct_inst.append(instance)
+            if args.upsample_error_type and args.upsample_error_type == "no_nei":
+                if instance["label"][0] in {"R", "S"}:
+                    incorrect_inst.append(instance)
+            else:
+                incorrect_inst.append(instance)
+
+        claim = instance["claim"]
+        if args.upsample_error_type:
+            assert args.upsample_error_rate > 0
+            if args.upsample_error_type == "negation_refutes":
+                if has_negation_word(claim) and instance["label"][0] == "R":
+                    extra_error_inst.append(instance)
 
     out_inst = correct_inst.copy()
-    out_inst.extend(incorrect_inst * (args.upsample_rate + 1))
+    out_inst.extend(incorrect_inst * (args.upsample_rate + 1))  # include original count
+    if extra_error_inst:
+        out_inst.extend(extra_error_inst * args.error_upsample_rate)
 
     print(f"Save to {args.out_file}")
     with jsonlines.open(args.out_file, "w") as out:
@@ -89,6 +97,8 @@ if __name__ == "__main__":
     parser.add_argument("--gold_file", type=str, required=True)
     parser.add_argument("--pred_file", type=str, required=True)
     parser.add_argument("--upsample_rate", type=int, default=0)
+    parser.add_argument("--upsample_error_type", type=str)
+    parser.add_argument("--upsample_error_rate", type=int, default=0)
     parser.add_argument("--out_file", type=str, required=True)
 
     args = parser.parse_args()

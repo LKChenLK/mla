@@ -6,7 +6,7 @@
 #
 #SBATCH --job-name=retrain_bert-base
 #SBATCH --out='retrain_bert-base.log'
-#SBATCH --time=01:00:00
+#SBATCH --time=02:30:00
 #SBATCH --gres=gpu:tesla_a100:1
 
 conda_setup="/home/smg/$(whoami)/miniconda3/etc/profile.d/conda.sh"
@@ -66,5 +66,5 @@ python '../../train.py' \
   --gradient_clip_val 1.0 \
   --precision 16 \
   --deterministic true \
-  --gpus 1 
-
+  --gpus 1 \
+  --overwrite_cache

@@ -68,4 +68,5 @@ python '../../train.py' \
   --precision 16 \
   --deterministic true \
   --gpus 1 \
-  --temperature_ratio 1 
+  --temperature_ratio 1 \
+  --overwrite_cache

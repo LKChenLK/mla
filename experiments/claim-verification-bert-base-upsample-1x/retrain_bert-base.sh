@@ -57,7 +57,7 @@ python '../../train.py' \
   --word_attn \
   --class_weighting \
   --use_title \
-  --max_epochs 5 \
+  --max_epochs 2 \
   --train_batch_size 16 \
   --eval_batch_size 16 \
   --accumulate_grad_batches 16 \
@@ -67,4 +67,5 @@ python '../../train.py' \
   --gradient_clip_val 1.0 \
   --precision 16 \
   --deterministic true \
-  --gpus 1 
+  --gpus 1 \
+  --overwrite_cache
