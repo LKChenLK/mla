@@ -13,8 +13,10 @@ def has_negation_word(claim):
             "yet",
             "refuse",
             "refused",
+            "refuses",
             "fail",
             "failed",
+            "fails",
             "only",
             "incapable",
             "unable",
@@ -33,8 +35,13 @@ def has_negation_word(claim):
 
 def get_worst_group(pred, gold):
     incorrect_inst = []
-    spurious_correlated_inst = []
+
     neg_ref_inst = []
+    neg_nei_inst = []
+    neg_sup_inst = []
+    no_neg_ref_inst = []
+    no_neg_nei_inst = []
+    no_neg_sup_inst = []
 
     for idx, instance in enumerate(pred):
         assert (
@@ -50,23 +57,45 @@ def get_worst_group(pred, gold):
         claim = instance["claim"]
         if not is_correct_label(instance):
             incorrect_inst.append(instance)
-            if has_negation_word(claim) and instance["label"][0] == "R":
-                spurious_correlated_inst.append(instance)
 
-        if has_negation_word(claim) and instance["label"][0] == "R":
-            neg_ref_inst.append(instance)
+        if has_negation_word(claim):
+            if instance["label"][0] == "R":
+                neg_ref_inst.append(instance)
+            elif instance["label"][0] == "N":
+                neg_nei_inst.append(instance)
+            elif instance["label"][0] == "S":
+                neg_sup_inst.append(instance)
+        else:
+            if instance["label"][0] == "R":
+                no_neg_ref_inst.append(instance)
+            elif instance["label"][0] == "N":
+                no_neg_nei_inst.append(instance)
+            elif instance["label"][0] == "S":
+                no_neg_sup_inst.append(instance)
 
     assert args.worst_group_type in [
         "all_incorrects",
-        "spurious_refutes",
         "negation_refutes",
+        "negation_supports",
+        "negation_nei",
+        "no_negation_refutes",
+        "no_negation_supports",
+        "no_negation_nei",
     ]
     if args.worst_group_type == "all_incorrects":
         out_inst = incorrect_inst
-    elif args.worst_group_type == "spurious_refutes":
-        out_inst = spurious_correlated_inst
     elif args.worst_group_type == "negation_refutes":
         out_inst = neg_ref_inst
+    elif args.worst_group_type == "negation_supports":
+        out_inst = neg_sup_inst
+    elif args.worst_group_type == "negation_nei":
+        out_inst = neg_nei_inst
+    elif args.worst_group_type == "no_negation_refutes":
+        out_inst = no_neg_ref_inst
+    elif args.worst_group_type == "no_negation_supports":
+        out_inst = no_neg_sup_inst
+    elif args.worst_group_type == "no_negation_nei":
+        out_inst = no_neg_nei_inst
     return out_inst
 
 

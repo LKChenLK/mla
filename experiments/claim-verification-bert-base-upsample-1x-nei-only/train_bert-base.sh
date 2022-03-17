@@ -4,8 +4,8 @@
 # Authors: Canasai Kruengkrai (canasai@nii.ac.jp)
 # All rights reserved.
 #
-#SBATCH --job-name=retrain_bert-base
-#SBATCH --out='retrain_bert-base.log'
+#SBATCH --job-name=train_bert-base
+#SBATCH --out='train_bert-base.log'
 #SBATCH --time=01:00:00
 #SBATCH --gres=gpu:tesla_a100:1
 
@@ -21,11 +21,11 @@ set -ex
 task='claim-verification'
 pretrained='bert-base-uncased'
 max_len=128
-model_dir="${pretrained}-${max_len}-mod"
+model_dir="${pretrained}-${max_len}-mod-1st-training"
 inp_dir="${pretrained}-${max_len}-inp"
-out_dir="${pretrained}-${max_len}-out"
 
 data_dir='../data'
+pred_sent_dir='../sentence-selection/bert-base-uncased-128-out'
 
 model='verification-joint'
 aggregate_mode='attn'
@@ -40,7 +40,7 @@ mkdir -p "${inp_dir}"
 
 python '../../preprocess_claim_verification.py' \
   --corpus "${data_dir}/corpus.jsonl" \
-  --in_file "${out_dir}/upsampled.jsonl" \
+  --in_file "${pred_sent_dir}/train.jsonl" \
   --out_file "${inp_dir}/train.tsv" \
   --training
 
@@ -67,4 +67,5 @@ python '../../train.py' \
   --gradient_clip_val 1.0 \
   --precision 16 \
   --deterministic true \
-  --gpus 1 
+  --gpus 1 \
+  --temperature_ratio 1 

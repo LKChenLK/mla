@@ -5,7 +5,7 @@
 # All rights reserved.
 #
 #SBATCH --job-name=predict_worst-group
-#SBATCH --out='predict_worst_group-dev.log'
+#SBATCH --out='predict_worst_group-dev-noneg.log'
 #SBATCH --time=00:10:00
 #SBATCH --gres=gpu:tesla_a100:1
 
@@ -42,10 +42,11 @@ echo "Latest checkpoint is ${latest}"
 mkdir -p "${out_dir}"
 
 split='shared_task_dev'
-worst_group='worst_group_dev'
+out_name='worst_group_dev-noneg'
+worst_group_type='no_negation'
 
-if [[ -f "${out_dir}/${worst_group}.jsonl" ]]; then
-  echo "Result '${out_dir}/${worst_group}.jsonl' exists!"
+if [[ -f "${out_dir}/${out_name}.jsonl" ]]; then
+  echo "Result '${out_dir}/${out_name}.jsonl' exists!"
   exit
 fi
 
@@ -55,30 +56,30 @@ fi
 python '../../extract_worst_groups.py' \
   --gold_file "${data_dir}/${split}.jsonl" \
   --pred_file "${out_dir}/${split}.jsonl" \
-  --out_pred_file "${inp_dir}/${worst_group}.tsv" \
-  --out_gold_file "${data_dir}/${worst_group}-gold.jsonl" \
-  --out_pred_sent_file "${data_dir}/${worst_group}-pred_sent.jsonl" \
+  --out_pred_file "${inp_dir}/${out_name}.tsv" \
+  --out_gold_file "${data_dir}/${out_name}-gold.jsonl" \
+  --out_pred_sent_file "${data_dir}/${out_name}-pred_sent.jsonl" \
   --corpus "${data_dir}/corpus.jsonl" \
-  --worst_group_type "all_incorrects"
+  --worst_group_type "${worst_group_type}"
 
 # predict R, S, or N, from training data and output probabilities
 python '../../predict.py' \
   --checkpoint_file "${latest}" \
-  --in_file "${inp_dir}/${worst_group}.tsv" \
-  --out_file "${out_dir}/${worst_group}.out" \
+  --in_file "${inp_dir}/${out_name}.tsv" \
+  --out_file "${out_dir}/${out_name}.out" \
   --batch_size 128 \
   --gpus 1
 
 # get prediction sentences for predicted
 # make predicted file the same order as gold file for eval
 python '../../postprocess_claim_verification.py' \
-  --data_file "${data_dir}/${worst_group}-gold.jsonl" \
-  --pred_sent_file "${data_dir}/${worst_group}-pred_sent.jsonl" \
-  --pred_claim_file "${out_dir}/${worst_group}.out" \
-  --out_file "${out_dir}/${worst_group}.jsonl"
+  --data_file "${data_dir}/${out_name}-gold.jsonl" \
+  --pred_sent_file "${data_dir}/${out_name}-pred_sent.jsonl" \
+  --pred_claim_file "${out_dir}/${out_name}.out" \
+  --out_file "${out_dir}/${out_name}.jsonl"
 
 python '../../eval_fever.py' \
-  --gold_file "${data_dir}/${worst_group}-gold.jsonl" \
-  --pred_file "${out_dir}/${worst_group}.jsonl" \
-  --out_file "${out_dir}/eval.${worst_group}.txt"
+  --gold_file "${data_dir}/${out_name}-gold.jsonl" \
+  --pred_file "${out_dir}/${out_name}.jsonl" \
+  --out_file "${out_dir}/eval.${out_name}.txt"
 

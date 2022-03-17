@@ -21,13 +21,12 @@ set -ex
 task='claim-verification'
 pretrained='bert-base-uncased'
 max_len=128
-model_dir="${pretrained}-${max_len}-mod-1st-train"
+model_dir="${pretrained}-${max_len}-mod"
 inp_dir="${pretrained}-${max_len}-inp"
 
 data_dir='../data'
-pred_sent_dir='../sentence-selection/bert-base-uncased-128-out'
 
-model='verification-joint'
+model='verification'
 aggregate_mode='attn'
 attn_bias_type='value_only'
 
@@ -38,13 +37,13 @@ fi
 
 mkdir -p "${inp_dir}"
 
-python '../../preprocess_claim_verification.py' \
-  --corpus "${data_dir}/corpus.jsonl" \
-  --in_file "${pred_sent_dir}/train.jsonl" \
+python '../../preprocess_covidfact.py' \
+  --in_file "${data_dir}/train_covidfact.tsv" \
   --out_file "${inp_dir}/train.tsv" \
-  --training
+  --training \
+  --max_evidence_per_claim 5
 
-python '../../train.py' \
+python '../../train_covidfact.py' \
   --task "${task}" \
   --data_dir "${inp_dir}" \
   --default_root_dir "${model_dir}" \
@@ -56,7 +55,6 @@ python '../../train.py' \
   --sent_attn \
   --word_attn \
   --class_weighting \
-  --use_title \
   --max_epochs 2 \
   --train_batch_size 16 \
   --eval_batch_size 16 \
@@ -67,7 +65,4 @@ python '../../train.py' \
   --gradient_clip_val 1.0 \
   --precision 16 \
   --deterministic true \
-  --gpus 1 \
-  --temperature_ratio 1 \
-  --save_all_checkpoints \
-  --overwrite_cache 
+  --gpus 1
