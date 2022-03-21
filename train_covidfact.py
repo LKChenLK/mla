@@ -265,7 +265,7 @@ def reshape_features(feature_list, num_evidence=5, max_seq_length=128):
 
     # input_ids, attention_mask, token_type_ids
     for i in range(0, 3):
-        rank_zero_info(f"\nfeature_list['{i}'].size() = '{feature_list[i].size()}' ")
+        rank_zero_info(f"feature_list['{i}'].size() = '{feature_list[i].size()}' ")
         feature_list[i] = feature_list[i].view(-1, num_evidence_plus, max_seq_length)
         assert feature_list[i].size(0) == num_examples
 
@@ -274,8 +274,8 @@ def reshape_features(feature_list, num_evidence=5, max_seq_length=128):
         feature_list[i] = torch.unique(
             feature_list[i].view(-1, num_evidence_plus), dim=1
         )
-        rank_zero_info(f"\nfeature_list['{i}'].size() = '{feature_list[i].size()}' ")
-        rank_zero_info(f"\nnum_examples = '{num_examples}' ")
+        rank_zero_info(f"feature_list['{i}'].size() = '{feature_list[i].size()}' ")
+        rank_zero_info(f"num_examples = '{num_examples}' ")
         assert feature_list[i].size(0) == num_examples and feature_list[i].size(1) == 1
         feature_list[i] = feature_list[i].view(-1)
 

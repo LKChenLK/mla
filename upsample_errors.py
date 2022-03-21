@@ -35,18 +35,21 @@ def main(pred_file, gold_file):
 
     gold = [line for line in jsonlines.open(gold_file)]
     pred = [line for line in jsonlines.open(pred_file)]
-    assert len(pred) == len(gold)
+    gold_dict_all = {line["id"]: line for line in gold}
+    gold_dict = {line["id"]: gold_dict_all[line["id"]] for line in pred}
 
     incorrect_inst = []
     extra_error_inst = []
     correct_inst = []
     for idx, instance in enumerate(pred):
+        claim_id = instance["id"]
         assert (
-            "evidence" in gold[idx].keys()
+            "evidence" in gold_dict[claim_id].keys()
         ), "evidence must be provided for the actual evidence"
-        instance["evidence"] = gold[idx]["evidence"]
-        instance["label"] = gold[idx]["label"]
-        instance["claim"] = gold[idx]["claim"]
+
+        instance["evidence"] = gold_dict[claim_id]["evidence"]
+        instance["label"] = gold_dict[claim_id]["label"]
+        instance["claim"] = gold_dict[claim_id]["claim"]
         for p in instance["predicted_evidence"]:
             p.append(0)  # need dummy score as input format;
             # evd sentences are already sorted by score
@@ -68,7 +71,13 @@ def main(pred_file, gold_file):
                     extra_error_inst.append(instance)
 
     out_inst = correct_inst.copy()
-    out_inst.extend(incorrect_inst * (args.upsample_rate + 1))  # include original count
+    if args.upsample_error_type == "non_errors":
+        out_inst.extend(correct_inst * (args.upsample_error_rate))
+    else:  # no error type sp
+        out_inst.extend(
+            incorrect_inst * (args.upsample_rate + 1)
+        )  # include original count
+
     if extra_error_inst:
         out_inst.extend(extra_error_inst * args.error_upsample_rate)
 

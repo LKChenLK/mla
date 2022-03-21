@@ -11,6 +11,31 @@ PAD_ID = -1
 PAD_SENT = ["[PAD]"]
 PAD_LABEL = -1
 
+split_dict = {
+    "train": 100000,
+    "dev": 200000,
+    "test_gold": 300000,
+    "test_top1": 400000,
+    "test_top5": 500000,
+}
+
+
+def get_split_claim_id(index, split_dict, input_file):
+    split = ""
+    if "train" in input_file:
+        split = "train"
+    elif "dev" in input_file:
+        split = "dev"
+    elif "gold" in input_file:
+        split = "test_gold"
+    elif "top1" in input_file:
+        split = "test_top1"
+    elif "top5" in input_file:
+        split = "test_top5"
+    claim_id = int(split_dict[split] + int(index))
+
+    return claim_id
+
 
 def pad_to_max(sent_list, max_evidence_per_claim):
     if len(sent_list) < max_evidence_per_claim:
@@ -49,29 +74,30 @@ def build_examples(args, line):
     selection_label = PAD_LABEL
     doc_id = PAD_SENT
     sent_id = PAD_ID
+    claim_id = get_split_claim_id(index, split_dict, args.in_file)
 
     add_period(claim)
 
     out_examples = []
     if args.training:
         out_examples.append(
-            [index, claim] + doc_id + [sent_id] + PAD_SENT + [label, selection_label]
+            [claim_id, claim] + doc_id + [sent_id] + PAD_SENT + [label, selection_label]
         )
         for evidence_sent in get_sentences(
             evidences,
             args.max_evidence_per_claim,
         ):
             out_examples.append(
-                [index, claim]
+                [claim_id, claim]
                 + doc_id
                 + [sent_id]
                 + evidence_sent
                 + [label, selection_label]
             )
     else:
-        out_examples.append([index, claim] + doc_id + [sent_id] + PAD_SENT)
+        out_examples.append([claim_id, claim] + doc_id + [sent_id] + PAD_SENT)
         for evidence_sent in get_sentences(evidences, args.max_evidence_per_claim):
-            out_examples.append([index, claim] + doc_id + [sent_id] + evidence_sent)
+            out_examples.append([claim_id, claim] + doc_id + [sent_id] + evidence_sent)
     return out_examples
 
 
@@ -94,8 +120,6 @@ def main():
     for index, line in enumerate(
         tqdm(infile, total=len(infile), desc="Building examples")
     ):
-        if index == 0:
-            continue
         out_examples.extend(build_examples(args, line))
 
     print("Number of examples: ", len(out_examples))

@@ -4,8 +4,8 @@
 # Authors: Canasai Kruengkrai (canasai@nii.ac.jp)
 # All rights reserved.
 #
-#SBATCH --job-name=predict_bert-base
-#SBATCH --out='predict_bert-base.log'
+#SBATCH --job-name=predict_roberta-large
+#SBATCH --out='predict_roberta-large.log'
 #SBATCH --time=00:10:00
 #SBATCH --gres=gpu:tesla_a100:1
 
@@ -18,7 +18,7 @@ fi
 
 set -ex
 
-pretrained='bert-base-uncased'
+pretrained='roberta-large'
 max_len=128
 model_dir="${pretrained}-${max_len}-mod"
 out_dir="${pretrained}-${max_len}-out"
